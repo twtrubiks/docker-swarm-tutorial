@@ -1,0 +1,51 @@
+version: "3"
+services:
+
+  db:
+    image: postgres
+    environment:
+        POSTGRES_PASSWORD: password123
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+        - "5432:5432"
+    networks:
+      - backend
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+  web:      
+      image: twtrubiks/my_django
+      # volumes:
+      #   - api-data:/docker_api
+      ports:
+        - "8000:8000"
+      networks:
+        - backend
+      depends_on:
+        - db
+      deploy:
+        replicas: 10
+        update_config:
+          parallelism: 2
+        restart_policy:          
+          condition: on-failure  
+
+  visualizer:
+    image: dockersamples/visualizer:stable
+    ports:
+      - "8080:8080"
+    stop_grace_period: 1m30s
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+networks:  
+  backend:
+
+volumes:
+  db-data:
+  # api-data:

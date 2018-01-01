@@ -5,6 +5,9 @@ Docker Swarm 基本教學 - 從無到有 Docker-Swarm-Beginners-Guide📝
 * [Youtube Tutorial PART 1 - Docker Machine 介紹](https://youtu.be/RSXlK0U-2Bo)
 * [Youtube Tutorial PART 2 - Docker Swarm 簡介](https://youtu.be/ir0ApK1rfA4)
 * [Youtube Tutorial PART 3 - Docker Swarm 建立 - 基礎篇](https://youtu.be/q2V3ZT5NdNo)
+* [Youtube Tutorial PART 4 - Deploy Services to a Swarm - 基礎篇](https://youtu.be/zW8dcez4EPM)
+* [Youtube Tutorial PART 5 - Docker Swarm + Django - 實戰篇](https://youtu.be/AeabcmHvSts)
+* [Youtube Tutorial PART 6 - Docker Swarm + HAProxy - 實戰篇](https://youtu.be/GaeLgRtiJEc)
 
 ## 簡介
 
@@ -44,9 +47,9 @@ Docker Swarm 基本教學 - 從無到有 Docker-Swarm-Beginners-Guide📝
 
 ### docker-machine 安裝教學
 
-詳細安裝教學可參考  [https://docs.docker.com/machine/install-machine/](https://docs.docker.com/machine/install-machine/)
+## Docker Toolbox
 
-建議直接裝 [Docker Toolbox](https://docs.docker.com/toolbox/overview/) 會比較快 :smile:
+使用 [Docker Toolbox](https://docs.docker.com/toolbox/overview/) 安裝
 
 安裝過程基本上很簡單
 
@@ -65,6 +68,29 @@ Docker Swarm 基本教學 - 從無到有 Docker-Swarm-Beginners-Guide📝
 ```
 
 ![](https://i.imgur.com/MxHFzCy.png)
+
+## 使用指令安裝
+
+詳細安裝教學可參考  [https://docs.docker.com/machine/install-machine/](https://docs.docker.com/machine/install-machine/)
+
+***Windows***
+
+使用 [Git BASH](http://gitforwindows.org/) 執行下列指令 ( 如果你有安裝 git ，通常電腦上都會有 )
+
+```cmd
+ if [[ ! -d "$HOME/bin" ]]; then mkdir -p "$HOME/bin"; fi && \
+curl -L https://github.com/docker/machine/releases/download/v0.13.0/docker-machine-Windows-x86_64.exe > "$HOME/bin/docker-machine.exe" && \
+chmod +x "$HOME/bin/docker-machine.exe"
+```
+
+***Mac***
+
+```cmd
+ curl -L https://github.com/docker/machine/releases/download/v0.13.0/docker-machine-`uname -s`-`uname -m` >/usr/local/bin/docker-machine && \
+  chmod +x /usr/local/bin/docker-machine
+```
+
+以上兩種方法我都有使用過，都沒什麼問題:smile:
 
 ### docker-machine 指令介紹
 
@@ -103,6 +129,22 @@ docker-machine ls
 ```
 
 可參考 [https://docs.docker.com/machine/reference/ls/](https://docs.docker.com/machine/reference/ls/)
+
+這邊補充一下，
+
+如果你使用 `docker-machine ls` 然後看到類似下面的錯誤訊息
+
+```cmd
+Unable to query docker version: Get https://192.168.99.102:2376/v1.15/version: x509: certificate is valid for 192.168.99.105, not 192.168.99.102
+```
+
+這時候可以用這個指令修復
+
+```cmd
+ docker-machine regenerate-certs [OPTIONS] [arg...]
+```
+
+可參考 [https://docs.docker.com/machine/reference/regenerate-certs/](https://docs.docker.com/machine/reference/regenerate-certs/)
 
 環境變數設定
 
@@ -369,6 +411,32 @@ B 的部分則是增加一個 worker 到 swarm 中的指令。
 docker swarm join --token SWMTKN-1-5ixph5gyd5gj51jg1749d4c6mms31kdnzcpji5c2yz4ke95rdw-2o9ias3hkslk29ph08wa3seon 192.168.1.107:2377
 ```
 
+這邊要再提醒大家一下，注意那個 **To add a worker to this swarm**，
+
+那我如果想要加入其他的 manager 呢:question:
+
+這時候我們可以使用下面的指令
+
+```cmd
+docker swarm join-token [OPTIONS] (worker|manager)
+```
+
+會顯示 **To add a manager to this swarm**
+
+```cmd
+docker swarm join-token manager
+```
+
+會顯示 **To add a worker to this swarm**
+
+```cmd
+docker swarm join-token worker
+```
+
+這邊大家可以自己玩玩看，可以有多個 manager ，但只能有一個 **Leader** !!
+
+更多可參考 [https://docs.docker.com/engine/reference/commandline/swarm_join-token/](https://docs.docker.com/engine/reference/commandline/swarm_join-token/)
+
 到 machine vm2 執行
 
 ![](https://i.imgur.com/Kf8a59i.png)
@@ -378,6 +446,14 @@ docker swarm join --token SWMTKN-1-5ixph5gyd5gj51jg1749d4c6mms31kdnzcpji5c2yz4ke
 ![](https://i.imgur.com/sajS4pN.png)
 
 更多 docker swarm init 可參考 [https://docs.docker.com/engine/reference/commandline/swarm_init/](https://docs.docker.com/engine/reference/commandline/swarm_init/)
+
+如果要離開 swarm，可使用
+
+```cmd
+docker swarm leave [OPTIONS]
+```
+
+可參考 [https://docs.docker.com/engine/reference/commandline/swarm_leave/](https://docs.docker.com/engine/reference/commandline/swarm_leave/)
 
 接下來回到 vm1 ( manager ) ，使用以下指令查看 swarm 中的 node
 
@@ -391,11 +467,62 @@ docker node ls
 
 可參考 [https://docs.docker.com/engine/reference/commandline/node_ls/](https://docs.docker.com/engine/reference/commandline/node_ls/)
 
+查看 node 詳細資料
+
+```cmd
+docker node inspect [OPTIONS] self|NODE [NODE...]
+```
+
+可參考 [https://docs.docker.com/engine/reference/commandline/node_inspect/](https://docs.docker.com/engine/reference/commandline/node_inspect/)
+
+移除 node 節點
+
+```cmd
+docker node rm [OPTIONS] NODE [NODE...]
+```
+
+可參考 [https://docs.docker.com/engine/reference/commandline/node_rm/](https://docs.docker.com/engine/reference/commandline/node_rm/)
+
+這邊要注意的是，當我們移除的 node 是 **manager** 時，你會發現無法移除，
+
+這時候，就必須先 demote 節點，然後才可以刪除
+
+demote 節點
+
+```cmd
+docker node demote NODE [NODE...]
+```
+
+範例 ( 假設 vm2 是 manager 節點 )，先將 vm2 demote 為 worker，再將他刪除
+
+```cmd
+docker node demote vm2
+docker node rm -f vm2
+```
+
+可參考 [https://docs.docker.com/engine/reference/commandline/node_demote/](https://docs.docker.com/engine/reference/commandline/node_demote/)
+
+既然有 demote ，那一定有 promote
+
+promote 節點
+
+```cmd
+docker node promote NODE [NODE...]
+```
+
+範例 ( 假設 vm3 是 worker 節點 )，將 vm3 promote 為 manager
+
+```cmd
+docker node promote vm3
+```
+
+可參考 [https://docs.docker.com/engine/reference/commandline/node_promote/](https://docs.docker.com/engine/reference/commandline/node_promote/)
+
 到這邊基本上就完成了，我們可以開始建立服務。
 
 ## docker service
 
-* [Youtube Tutorial PART 3 - Deploy Services to a Swarm 教學](xxxxx)
+* [Youtube Tutorial PART 4 - Deploy Services to a Swarm - 基礎篇](https://youtu.be/zW8dcez4EPM)
 
 接下來我們先用 `docker service` 來玩玩 `docker swarm`
 
@@ -424,10 +551,20 @@ docker service create --name=my_nginx nginx
 沒特別指定，就是在背景執行，如下方
 
 ```cmd
-docker service create --detach=false nginx
+docker service create --detach=false --name my_nginx nginx
 ```
 
 ![](https://i.imgur.com/eThAZPt.png)
+
+也可以寫成
+
+```cmd
+docker service create --detach=false --name my_nginx --mode replicated nginx
+```
+
+這邊指定了 mode 為 replicated，假如你沒指定，預設為 replicated mode。
+
+可以加上 `-p , --publish`，publish port 給 swarm 之外的 client 端使用。
 
 可參考 [https://docs.docker.com/engine/reference/commandline/service_create/](https://docs.docker.com/engine/reference/commandline/service_create/)
 
@@ -453,17 +590,41 @@ docker service update [OPTIONS] SERVICE
 docker service update --publish-add 80 my_nginx
 ```
 
+可參考 [https://docs.docker.com/engine/reference/commandline/service_update/](https://docs.docker.com/engine/reference/commandline/service_update/)
+
+如果要更新已經存在的 service，需使用 `--publish-add`，
+
+也可以透過 `--publish-rm` 移除之前 published 的 port。
+
 ![](https://i.imgur.com/GL7FNuo.png)
 
 可以使用 `docker service ls`查看
 
 ![](https://i.imgur.com/tOSYgN2.png)
 
-這時候可以試著瀏覽 [http://192.168.1.107:30000/](http://192.168.1.107:30000/)，應該能成功看到畫面:kissing_smiling_eyes:
+這時候可以試著瀏覽 vm2 ( [http://192.168.1.106:30000/](http://192.168.1.106:30000/) ) or vm1 ( [http://192.168.1.107:30000/](http://192.168.1.107:30000/) )
+
+or vm3 ( [http://192.168.1.108:30000/](http://192.168.1.108:30000/) )
+
+( ip 請使用你自己的，你的 ip 應該會和我的不一樣 :expressionless: )
+
+都能成功看到畫面:kissing_smiling_eyes:
 
 ![](https://i.imgur.com/ds9fmas.png)
 
-可參考 [https://docs.docker.com/engine/reference/commandline/service_update/](https://docs.docker.com/engine/reference/commandline/service_update/)
+這時候你可能會問，vm2 ( [http://192.168.1.106](http://192.168.1.106) ) 和 vm3 ( [http://192.168.1.108](http://192.168.1.108) ) 裡面沒有任何 container 在執行，
+
+目前只有 vm1 ( [http://192.168.1.107:30000/](http://192.168.1.107:30000/) ) 中有一個 container 在執行，
+
+那為什麼 vm2 和 vm3 也能正常工作 :question:
+
+原因是因為 docker swarm 內建的 Loan Balance +  **Routing Mesh** 幫我們完成了 :open_mouth:
+
+**Routing Mesh** 會將你的 request route 到正在運行的 container 上，可參考下方這張圖
+
+![](https://i.imgur.com/ZwaTYJO.png)
+
+更多的 **Routing Mesh** 可參考官網說明 [https://docs.docker.com/engine/swarm/ingress/](https://docs.docker.com/engine/swarm/ingress/)
 
 docker service scale
 
@@ -549,8 +710,6 @@ docker service logs -f my_nginx
 
 ## Docker Swarm Visualizer
 
-* [Youtube Tutorial PART 4 - Docker Swarm Visualizer 教學](xxxxx)
-
 接下來推薦大家一個套件 [Docker Swarm Visualizer](https://github.com/ManoMarks/docker-swarm-visualizer)，
 
 顧名思義，他就是可以將 Docker Swarm 視覺化。
@@ -565,7 +724,304 @@ docker service create --name=viz --publish=8080:8080/tcp --constraint=node.role=
 
 ![](https://i.imgur.com/2wJdVjS.png)
 
-可以發現 6 個 service 服務平均分散到每個 machine 裡面。
+可以發現 6 個 service 分散到每個 machine 裡面。
+
+## Docker Swarm + Django
+
+* [Youtube Tutorial PART 5 - Docker Swarm + Django - 實戰篇](https://youtu.be/AeabcmHvSts)
+
+前面已經用 nginx 帶大家認識 `docker service` 以及 `docker swarm` 了，現在要用 Docker Swarm + Django 來實戰
+
+### 步驟一
+
+首先，要先建立 image，為什麼呢:question: 不是可以使用 build :question:
+
+因為現在要使用 `docker stack` 的方式佈署，而 `docker stack` 強制規定一定要使用 image ，可參考官網 [image-required](https://docs.docker.com/docker-cloud/apps/stack-yaml-reference/#image-required)，
+
+Django 的範例使用之前介紹的 [用 Docker 實戰 Django 以及 Postgre](https://github.com/twtrubiks/docker-tutorial#%E7%94%A8-docker-%E5%AF%A6%E6%88%B0-django-%E4%BB%A5%E5%8F%8A-postgre)
+
+所以先 clone 下來
+
+```cmd
+git clone https://github.com/twtrubiks/docker-tutorial.git
+```
+
+接著到目錄底下
+> cd docker-tutorial`
+
+執行 `docker-compose up`
+
+再開啟另一個 terminal，先使用 `docker ps` 找到正在執行的 web container，
+
+之後就是 commit，可參考下面指令
+
+```cmd
+docker commit -m "create" CONTAINER_ID twtrubiks/my_django
+```
+
+push image
+
+```cmd
+docker push twtrubiks/my_django
+```
+
+因為 repo 是 pubilc 的，所以大家可以到這邊查看 [twtrubiks/my_django](https://hub.docker.com/r/twtrubiks/my_django/)，
+
+你可以自己練習操作一遍，或是直接使用我的 image :smirk:
+
+如果你對 `docker push` 不熟，可參考之前的教學 [Docker push image to Docker Hub 教學](https://github.com/twtrubiks/docker-tutorial#docker-registry)。
+
+### 步驟二
+
+建立 `docker-stack.yml`，可參考 [docker-stack.yml](https://github.com/twtrubiks/docker-swarm-tutorial/blob/master/docker-stack.yml)
+
+```yml
+version: "3"
+services:
+
+  db:
+    image: postgres
+    environment:
+        POSTGRES_PASSWORD: password123
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+        - "5432:5432"
+    networks:
+      - backend
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+  web:
+      image: twtrubiks/my_django
+      # volumes:
+      #   - api-data:/docker_api
+      ports:
+        - "8000:8000"
+      networks:
+        - backend
+      depends_on:
+        - db
+      deploy:
+        replicas: 10
+        update_config:
+          parallelism: 2
+        restart_policy:
+          condition: on-failure
+
+  visualizer:
+    image: dockersamples/visualizer:stable
+    ports:
+      - "8080:8080"
+    stop_grace_period: 1m30s
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+networks:
+  backend:
+
+volumes:
+  db-data:
+  # api-data:
+```
+
+基本上這個 `docker-stack.yml` 是從 [docker-compose.yml](https://github.com/twtrubiks/docker-tutorial/blob/master/docker-compose.yml) 修改來的，
+
+有注意到嗎？ 已經使用了 [twtrubiks/my_django](https://hub.docker.com/r/twtrubiks/my_django/) 這個剛剛建立出來的 image，
+
+其餘的 `docker-stack.yml` 參數介紹請參考官網 [https://docs.docker.com/compose/compose-file/](https://docs.docker.com/compose/compose-file/)，
+
+這邊基本上都可以找到說明，在頁面上用關鍵字找即可 :relaxed:
+
+### 步驟三
+
+終於可以開始佈署了 :satisfied:
+
+一樣使用三台 machine，vm1 是 Leader
+
+![](https://i.imgur.com/0716ws1.png)
+
+接著 ssh 進去 vm1
+
+![](https://i.imgur.com/CIZyv09.png)
+
+先 clone 一份下來，因為我們需要 `docker-stack.yml`（ 你也可以用其他的方法 ）
+
+```cmd
+git clone https://github.com/twtrubiks/docker-swarm-tutorial
+```
+
+切換到目錄底下
+> cd docker-swarm-tutorial/
+
+![](https://i.imgur.com/0Rot4eX.png)
+
+接著使用 `docker stack deploy` 指令佈署，
+
+```cmd
+docker stack deploy --compose-file docker-stack.yml my_app
+```
+
+![](https://i.imgur.com/kITmKDl.png)
+
+當使用 `docker service ls` 查看時，可能要等一下:relaxed:
+
+因為每一台機器 ( vm1 vm2 vm3 ) 都需要從 [docker hub](https://hub.docker.com/) pull image 下來，
+
+![](https://i.imgur.com/ajhH6TD.png)
+
+更多 `docker stack deploy` 說明，可參考 [https://docs.docker.com/engine/reference/commandline/stack_deploy/](https://docs.docker.com/engine/reference/commandline/stack_deploy/)
+
+接下來就是 migrate，隨便進去一個 web service 的 container migrate 即可，使用的指令如下，
+
+先查看 container id，並且進入 container
+
+```cmd
+docker ps
+docker exec -it <Container ID> bash
+```
+
+![](https://i.imgur.com/daIIFT0.png)
+
+開始 migrate
+
+```cmd
+python manage.py makemigrations musics
+python manage.py migrate
+```
+
+![](https://i.imgur.com/5YkmSqQ.png)
+
+再建立一個 superuser
+
+```cmd
+python manage.py createsuperuser
+```
+
+![](https://i.imgur.com/BVzF9mk.png)
+
+到這邊就完成了:smiley:
+
+以我的範例可以瀏覽 [http://192.168.1.105:8000/api/music/](http://192.168.1.105:8000/api/music/) 或
+
+[http://192.168.1.106:8000/api/music/](http://192.168.1.106:8000/api/music/) 或 [http://192.168.1.107:8000/api/music/](http://192.168.1.107:8000/api/music/)
+
+都可以順利看到 :satisfied:
+
+![](https://i.imgur.com/yXRmthx.png)
+
+port 8080 則是 Docker Swarm Visualizer ，瀏覽 [http://192.168.1.105:8080](http://192.168.1.105:8080) 或
+
+[http://192.168.1.106:8080](http://192.168.1.106:8080) 或 [http://192.168.1.107:8080](http://192.168.1.107:8080)
+
+![](https://i.imgur.com/AoEMe4O.png)
+
+雖然一切看起來美好，但有個小缺點，假設我將 vm3 ( [192.168.1.107](192.168.1.107) )  關機（或是因為其他原因這台機器掛了），
+
+然後去瀏覽 [http://192.168.1.107:8000/api/music/](http://192.168.1.107:8000/api/music/) ，你會發現連不進去 :sob:
+
+你總不可能叫使用者改連 [http://192.168.1.105:8000/api/music/](http://192.168.1.105:8000/api/music/) 或 [http://192.168.1.106:8000/api/music/](http://192.168.99.106:8000/api/music/)，
+
+不被打飛才怪 :rage:
+
+所以這時候我們還需要一個 **外部** 的 **load balancer** !!
+
+load balancer 之前也有介紹過，那時候是使用 nginx 介紹的，
+
+可參考 [實戰 Docker + Django + Nginx + uWSGI + Postgres - Load Balance 📝](https://github.com/twtrubiks/docker-django-nginx-uwsgi-postgres-load-balance-tutorial)
+
+我在 [文章](https://github.com/twtrubiks/docker-django-nginx-uwsgi-postgres-load-balance-tutorial#%E5%85%B6%E4%BB%96%E7%9A%84%E8%B2%A0%E8%BC%89%E5%B9%B3%E8%A1%A1) 最後也提到，如果要專注在 load balancer，使用 HAProxy 效果應該會更好，
+
+所以現在，我們就來加上 HAProxy 吧:satisfied:
+
+## Docker Swarm + HAProxy
+
+* [Youtube Tutorial PART 6 - Docker Swarm + HAProxy - 實戰篇](https://youtu.be/GaeLgRtiJEc)
+
+[HAProxy](http://www.haproxy.org/)（ High Availability Proxy ）最常見的用途是提高分散式環境的效能和可靠性，以這個範例，就非常適合使用。
+
+![](https://i.imgur.com/oWLFO83.png)
+
+參考官網 [https://docs.docker.com/engine/swarm/ingress/#using-the-routing-mesh](https://docs.docker.com/engine/swarm/ingress/#using-the-routing-mesh)
+
+注意，這邊是本機中執行，不是在 swarm 中執行了
+
+先切換到 `haproxy-tutorial` 資料夾中
+> cd haproxy-tutorial
+
+修改 `haproxy.cfg`，主要是修改成自己的 ip
+
+```cfg
+global
+        # log /dev/log   local0
+        # log /dev/log   local1 notice
+        # chroot /var/lib/haproxy
+        maxconn 4096
+        # user www-data
+        # group haproxy
+        daemon
+
+defaults
+        log     global
+        mode    http
+        option  httplog
+        option  dontlognull
+        retries 3
+        option redispatch
+        maxconn 2000
+        contimeout     5000
+        clitimeout     50000
+        srvtimeout     50000
+
+# Configure HAProxy to listen on port 80
+frontend http_front
+   bind *:80
+   stats uri /haproxy?stats
+   default_backend http_back
+
+# Configure HAProxy to route requests to swarm nodes on port 8000
+backend http_back
+   balance roundrobin
+   server node1 192.168.1.105:8000 check
+   server node2 192.168.1.106:8000 check
+   server node3 192.168.1.107:8000 check
+```
+
+`haproxy.cfg` 的設定真的很多，詳細可以參考 [官網](http://www.haproxy.org/) 說明
+
+接著 build image
+
+```cmd
+docker build -t my-haproxy .
+```
+
+![](https://i.imgur.com/yd8Ljgd.png)
+
+將他執行起來
+
+```cmd
+docker run -p 8080:80  my-haproxy
+```
+
+![](https://i.imgur.com/z0g2jQp.png)
+
+當瀏覽 [http://localhost:8080/api/music/](http://localhost:8080/api/music/) 時，就算 vm3 ( 192.168.99.102 )  掛了，我們一樣可以正常使用網頁 :satisfied:
+
+![](https://i.imgur.com/aOiXV3M.png)
+
+HAProxy 會透過 Health Check 檢查是否這台 server 可以處理 request（會將你的 request 導到可以處理的 server 上）
+
+只要還有一台存在，都可以正常使用網頁（不會掛點）。
+
+但也不要開心的太早，雖然有 HAProxy 幫我們處理 load balancer，但是也有可以 HAProxy 那台機器出了問題，
+
+也就是 **單點失效 ( SPOF )  single point of failure**，也就導致整個系統無法運作:scream:
+
+可以使用 HAproxy + **Keepalived** 解決，這部份有機會會再介紹給大家:relaxed:
 
 ## 執行環境
 
@@ -576,7 +1032,10 @@ docker service create --name=viz --publish=8080:8080/tcp --constraint=node.role=
 ## Reference
 
 * [https://docs.docker.com/](https://docs.docker.com/)
+* [http://www.haproxy.org/](http://www.haproxy.org/)
+* [An Introduction to HAProxy and Load Balancing Concepts](https://www.digitalocean.com/community/tutorials/an-introduction-to-haproxy-and-load-balancing-concepts)
 * [docker-swarm-visualizer](https://github.com/ManoMarks/docker-swarm-visualizer)
+* [Keepalived](http://www.keepalived.org)
 
 ## License
 
