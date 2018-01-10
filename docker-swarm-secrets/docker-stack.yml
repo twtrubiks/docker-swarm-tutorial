@@ -1,0 +1,43 @@
+version: '3.1'
+services:
+
+    db:
+      image: postgres
+      environment:                
+        POSTGRES_PASSWORD_FILE: /run/secrets/my_password
+      ports:
+        - "5432:5432"
+      networks:
+        - backend
+      volumes:
+        - pgdata:/var/lib/postgresql/data/
+      secrets:
+        - my_password
+
+    web:
+      image: twtrubiks/my_swarm_secrets_demo        
+      ports:
+        - "8000:8000"
+      networks:
+        - backend     
+      deploy:
+          replicas: 4
+          update_config:
+              parallelism: 2
+          restart_policy:
+              condition: on-failure
+      secrets:
+        - my_password
+      depends_on:
+        - db
+
+volumes:
+    api_data:
+    pgdata:
+
+networks:  
+  backend:
+
+secrets:
+    my_password:
+        external: true

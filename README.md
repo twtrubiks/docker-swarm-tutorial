@@ -8,6 +8,7 @@ Docker Swarm 基本教學 - 從無到有 Docker-Swarm-Beginners-Guide📝
 * [Youtube Tutorial PART 4 - Deploy Services to a Swarm - 基礎篇](https://youtu.be/zW8dcez4EPM)
 * [Youtube Tutorial PART 5 - Docker Swarm + Django - 實戰篇](https://youtu.be/AeabcmHvSts)
 * [Youtube Tutorial PART 6 - Docker Swarm + HAProxy - 實戰篇](https://youtu.be/GaeLgRtiJEc)
+* [Youtube Tutorial PART 7 - Docker Swarm Manage sensitive data with Docker secrets - 實戰篇](https://youtu.be/T8mkecPQce4)
 
 ## 簡介
 
@@ -31,11 +32,19 @@ Docker Swarm 基本教學 - 從無到有 Docker-Swarm-Beginners-Guide📝
 
 透過這篇文章，你將會學會
 
-* 認識 Docker Machine
+* [認識 Docker Machine](https://github.com/twtrubiks/docker-swarm-tutorial#docker-machine-%E6%95%99%E5%AD%B8)
 
-* 認識 Docker Swarm
+* [認識 Docker Swarm](https://github.com/twtrubiks/docker-swarm-tutorial#docker-swarm-%E6%95%99%E5%AD%B8)
 
-* 實戰 Docker Swarm + Django ( 等待新增 )
+* [Deploy Services to a Swarm](https://github.com/twtrubiks/docker-swarm-tutorial#docker-service)
+
+* [認識 Docker Swarm Visualizer](https://github.com/twtrubiks/docker-swarm-tutorial#docker-swarm-visualizer)
+
+* [實戰 Docker Swarm + Django](https://github.com/twtrubiks/docker-swarm-tutorial#docker-swarm--django)
+
+* [Docker Swarm + HAProxy](https://github.com/twtrubiks/docker-swarm-tutorial#docker-swarm--haproxy)
+
+* [Docker Swarm - Manage sensitive data with Docker secrets](https://github.com/twtrubiks/docker-swarm-tutorial#docker-swarm---manage-sensitive-data-with-docker-secrets)
 
 ## docker-machine 教學
 
@@ -270,7 +279,7 @@ docker-machine create -d hyperv --hyperv-virtual-switch "Primary Virtual Switch"
 
 * Desired state reconciliation
 
-    swarm manager node 會一直監控 cluster 狀態，保持你所需的狀態。舉個例子，假設你設定一個服務有十個 replicas，其中有一台 worker machine 死了兩個 replicas，swarm manager node 會再指派給可運作的 worker 兩個 replicas。
+    swarm manager node 會一直監控 cluster 狀態，保持你所需的狀態。舉個例子，假設你設定一個服務有十個 replicas，其中有一台 worker machine 死了兩個 replicas，swarm manager node 會再指派給可運作的 worker 兩個 replicas，保持服務有十個 replicas（ 保持你所需的狀態 ）。
 
 * Multi-host networking
 
@@ -332,10 +341,12 @@ swarm 佈署會分佈多個 physical computer  和雲端機器的 docker 節點�
  worker 節點收到來自 manager nodes 分派的任務，預設的  manager nodes 也會執行服務（ 如同 wokers ），
 
  當然，你也可以設定
- manager nodes 只做管理的工作，並成為唯一的管理者，work node 通知 manager node
+ manager nodes 只做管理的工作，並成為唯一的管理者。
 
- 目前自己負責的 tasks 的狀態，
- 讓 manager 可以維持每個 worker 該負責的任務 （以達到期望的狀態 ）。
+ work node 通知 manager node 目前自己負責的 tasks 的狀態，
+ 讓 manager 可以維持每個 worker 該負責的任
+
+ 務（以達到期望的狀態 ）。
 
 #### Services and tasks
 
@@ -378,6 +389,22 @@ docker swarm 中，主要的就是 **managers** and **workers**
 #### How services work
 
 請參考 [https://docs.docker.com/engine/swarm/how-swarm-mode-works/services/](https://docs.docker.com/engine/swarm/how-swarm-mode-works/services/)
+
+#### Raft consensus in swarm mode
+
+當 Docker Engine 執行在 Swarm mode 時，manager nodes 實現 [Raft Consensus Algorithm](http://thesecretlivesofdata.com/raft/)（ 建議觀看 ）來管理
+
+全部的 cluster 的狀態。
+
+假如現在有 A、B、C 三個 manager nodes，並且 A 是 Leader，今天 A 節點因為某種原因失效了，這時候 B、C 兩個
+
+節點會互相選舉，選出一個 Leader 以維持整個系統。
+
+Raft 容忍 `(N-1)/2` 失效，假設 5 個 Manager nodes 中，有 3 個 nodes 失效，雖然正在執行的 tasks 會保持執行，
+
+但整個系統的 scheduler 將失效，也就是無法 balance tasks。
+
+更多請參考 [https://docs.docker.com/engine/swarm/raft/](https://docs.docker.com/engine/swarm/raft/)
 
 ### docker swarm 基礎篇
 
@@ -518,7 +545,41 @@ docker node promote vm3
 
 可參考 [https://docs.docker.com/engine/reference/commandline/node_promote/](https://docs.docker.com/engine/reference/commandline/node_promote/)
 
-到這邊基本上就完成了，我們可以開始建立服務。
+Update a node
+
+```cmd
+docker node update [OPTIONS] NODE
+```
+
+詳細參數可參考 [https://docs.docker.com/engine/reference/commandline/node_update/](https://docs.docker.com/engine/reference/commandline/node_update/)
+
+有時候可能某些節點需要進行維護的工作，所以必須先離線，這時候可以透過
+
+`--availability` 這個參數來完成，指令如下
+
+```cmd
+docker node update [OPTIONS] NODE
+```
+
+舉個例子，vm3 這個節點需要進行維護，將 vm3 drain
+
+```cmd
+docker node update --availability drain vm3
+```
+
+這時候可以用 `docker node ls` 觀察，會發現他的 AVAILABILITY 變成 Drain 了
+
+![](https://i.imgur.com/J6z9FaF.png)
+
+可以再用 `docker stack ps [OPTIONS] STACK` 去觀察，其他的 node 會去幫被 Drain 的節點做 cover 的動作。
+
+如果 vm3 這個節點維護好了，只需要執行以下指令即可回復
+
+```cmd
+docker node update --availability active vm3
+```
+
+到這邊基本上就完成了，我們可以開始建立服務 :smile:
 
 ## docker service
 
@@ -549,6 +610,8 @@ docker service create --name=my_nginx nginx
 `--detach` 如果設定為 false ，則會在 foreground ( 前景 ) 執行，
 
 沒特別指定，就是在背景執行，如下方
+
+( 這邊特別補充一下，未來的 docker 版本，沒指定都會默認 `--detach=false` )
 
 ```cmd
 docker service create --detach=false --name my_nginx nginx
@@ -649,6 +712,18 @@ docker service scale my_nginx=0
 ```
 
 可參考 [https://docs.docker.com/engine/reference/commandline/service_scale/](https://docs.docker.com/engine/reference/commandline/service_scale/)
+
+這邊還是簡單提一下， `scale up` 和 `scale out` 這兩個簡單的名詞:relaxed:
+
+`scale up` 又稱 Vertical Scaling，最常見的就是增加硬體，像是提高 CPU、Ram。
+
+`scale out` 又稱 Horizontal Scaling，可以思考成像 docker swarm 這樣的分散式架構（ 可以無限拓展 ），
+
+通常整體價格會比 `scale up` 低。
+
+相信大家看完下面這張圖會更了解:satisfied:
+
+![](https://i.imgur.com/DM6Bmy9.jpg)
 
 查看 service 的任務狀態 ( List the tasks of one or more services )
 
@@ -866,6 +941,14 @@ git clone https://github.com/twtrubiks/docker-swarm-tutorial
 docker stack deploy --compose-file docker-stack.yml my_app
 ```
 
+也可以寫成
+
+```cmd
+docker stack deploy -c docker-stack.yml my_app
+```
+
+`--compose-file` , `-c` 代表 Path to a Compose file
+
 ![](https://i.imgur.com/kITmKDl.png)
 
 當使用 `docker service ls` 查看時，可能要等一下:relaxed:
@@ -875,6 +958,40 @@ docker stack deploy --compose-file docker-stack.yml my_app
 ![](https://i.imgur.com/ajhH6TD.png)
 
 更多 `docker stack deploy` 說明，可參考 [https://docs.docker.com/engine/reference/commandline/stack_deploy/](https://docs.docker.com/engine/reference/commandline/stack_deploy/)
+
+這邊補充一下 `docker stack` 的其他指令
+
+List stacks
+
+```cmd
+docker stack ls
+```
+
+可參考 [https://docs.docker.com/engine/reference/commandline/stack_ls/](https://docs.docker.com/engine/reference/commandline/stack_ls/)
+
+List the tasks in the stack
+
+```cmd
+docker stack ps [OPTIONS] STACK
+```
+
+可參考 [https://docs.docker.com/engine/reference/commandline/stack_ps/](https://docs.docker.com/engine/reference/commandline/stack_ps/)
+
+Remove one or more stacks
+
+```cmd
+docker stack rm STACK [STACK...]
+```
+
+可參考 [https://docs.docker.com/engine/reference/commandline/stack_rm/](https://docs.docker.com/engine/reference/commandline/stack_rm/)
+
+List the services in the stack
+
+```cmd
+docker stack services [OPTIONS] STACK
+```
+
+可參考 [https://docs.docker.com/engine/reference/commandline/stack_services/](https://docs.docker.com/engine/reference/commandline/stack_services/)
 
 接下來就是 migrate，隨便進去一個 web service 的 container migrate 即可，使用的指令如下，
 
@@ -1022,6 +1139,220 @@ HAProxy 會透過 Health Check 檢查是否這台 server 可以處理 request（
 也就是 **單點失效 ( SPOF )  single point of failure**，也就導致整個系統無法運作:scream:
 
 可以使用 HAproxy + **Keepalived** 解決，這部份有機會會再介紹給大家:relaxed:
+
+## Docker Swarm - Manage sensitive data with Docker secrets
+
+* [Youtube Tutorial PART 7 - Docker Swarm Manage sensitive data with Docker secrets - 實戰篇](https://youtu.be/T8mkecPQce4)
+
+如果你不想將敏感資料存在 image 或者程式碼中，可以使用 docker secrets 來管理容器執行時需要的敏感資料，
+
+像是 passwords、ssl certificates 、ssh private keys ......
+
+思考一個問題，當你有開發機、測試機、正式機，然後每個環境都有不同的密碼，這樣管理 swarm 上會非常麻煩，
+
+這時候可以透過 docker secrets 來管理這些密碼，我們只需要知道 secrets name 就可以在這三個環境上運作。
+
+這邊要注意，`Docker secrets` 只能夠使用在 swarm 下，不能夠使用在獨立的 container 中，
+
+更多介紹，請參考 [Manage sensitive data with Docker secrets](https://docs.docker.com/engine/swarm/secrets/)
+
+其餘的 `Docker secrets` 指令可參考 [https://docs.docker.com/engine/reference/commandline/secret/](https://docs.docker.com/engine/reference/commandline/secret/)
+
+簡單的來實戰一下:smile:
+
+先到 swarm 環境中，假設 vm1 是 manager，先 clone 範例
+
+```cmd
+git clone https://github.com/twtrubiks/docker-swarm-tutorial.git
+```
+
+接著  `cd docker-swarm-tutorial/docker-swarm-secrets/` 到 [docker-swarm-secrets](https://github.com/twtrubiks/docker-swarm-tutorial/tree/master/docker-swarm-secrets) 資料夾底下，
+
+主要只會用到 [docker-stack.yml](https://github.com/twtrubiks/docker-swarm-tutorial/blob/master/docker-swarm-secrets/docker-stack.yml) 這個檔案，這個範例是從 [Docker 基本教學 - 從無到有 Docker-Beginners-Guide](https://github.com/twtrubiks/docker-tutorial) 修改過來的，
+
+修改了 api/django_rest_framework_tutorial/[settings.py](https://github.com/twtrubiks/docker-swarm-tutorial/blob/master/docker-swarm-secrets/api/django_rest_framework_tutorial/settings.py) 這個檔案，修改如下
+
+```python
+
+def secret_path(name):
+    path = '/run/secrets/{}'.format(name)
+    if not os.path.isfile(path):
+        raise Warning(name)
+    return path
+
+
+def secret(name, strip=True):
+    with open(secret_path(name), 'r') as f:
+        val = f.read()
+        if strip:
+            val = val.strip()
+        return val
+
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'postgres',
+        'USER': 'postgres',
+        'PASSWORD': secret('my_password'),
+        'HOST': 'db',
+        'PORT': 5432,
+    }
+}
+```
+
+目的是去讀取路徑中的 `/run/secrets/<secret_name>` 檔案。（ 我們會將 secrets 名稱設定為 my_password ）。
+
+在 Docker 17.05 或更早的版本，secrets 路徑總是會存在 `/run/secrets/` 資料夾裡，
+
+在 Docker 17.06 之後，可以指定路徑（ 沒指定默認路徑也是 `/run/secrets/` ）。
+
+前面說過了，`docker stack` 強制規定一定要使用 image，這邊大家可以自己 build，然後 push 到 [docker hub](https://hub.docker.com/)，
+
+也可以直接使用我幫大家做好的 [twtrubiks/my_swarm_secrets_demo](https://hub.docker.com/r/twtrubiks/my_swarm_secrets_demo/):wink:
+
+接著來看 [docker-stack.yml](https://github.com/twtrubiks/docker-swarm-tutorial/blob/master/docker-swarm-secrets/docker-stack.yml)
+
+```yml
+version: '3.1'
+services:
+
+    db:
+      image: postgres
+      environment:
+        POSTGRES_PASSWORD_FILE: /run/secrets/my_password
+      ports:
+        - "5432:5432"
+      networks:
+        - backend
+      volumes:
+        - pgdata:/var/lib/postgresql/data/
+      secrets:
+        - my_password
+
+    web:
+      image: twtrubiks/my_swarm_secrets_demo
+      ports:
+        - "8000:8000"
+      networks:
+        - backend
+      deploy:
+          replicas: 4
+          update_config:
+              parallelism: 2
+          restart_policy:
+              condition: on-failure
+      secrets:
+        - my_password
+      depends_on:
+        - db
+
+volumes:
+    api_data:
+    pgdata:
+
+networks:
+  backend:
+
+secrets:
+    my_password:
+        external: true
+```
+
+解釋幾個名詞，
+
+版本使用 `3.1` 是避免遇到 secrets Additional property secrets is not allowed 這個錯誤訊息。
+
+`POSTGRES_PASSWORD_FILE` 這個是讀取我們創造的 secrets，
+
+`secrets` 則是指定我們創造的 secrets，這邊還要提一個參數 `external`，
+
+當設定為 `true` 時，代表為外部資源，也就是他已經在 docker 中被定義了，
+
+所以當啟動時，不會再去創造他，如果找不到，則會顯示 `secret not found` 錯誤。
+
+詳細的說明可參考
+
+[https://docs.docker.com/compose/compose-file/#secrets](https://docs.docker.com/compose/compose-file/#secrets)
+
+[https://docs.docker.com/compose/compose-file/#external](https://docs.docker.com/compose/compose-file/#external)
+
+接下來就真的要佈署了:grin:
+
+在 vm1 manager 節點下，先建立 secret
+
+```cmd
+echo "password123yoyo" | docker secret create my_password -
+```
+
+注意最後面有一個 `-`，代表輸入是從標準輸入讀取的。
+
+密碼你要打多少都可以，因為現在我們只需要知道 secrets name 就可以讀取敏感資訊了。
+
+可以使用 `docker secret ls` 查詢，會看到剛剛建立的 my_password
+
+![](https://i.imgur.com/kPwe1oU.png)
+
+開始佈署
+
+```cmd
+docker stack deploy -c docker-stack.yml demo_secret
+```
+
+![](https://i.imgur.com/RS93Yfz.png)
+
+執行 `docker stack services demo_secret` 確認佈署狀態，
+
+![](https://i.imgur.com/be6cNyI.png)
+
+確定都佈署完成了之後，
+
+可以執行 `docker stack ps demo_secret` 查看分布在各主機的狀況，
+
+![](https://i.imgur.com/m61tm6s.png)
+
+在這邊我們隨便進入一個 container ，
+都可以找到 `/run/secrets/my_password` 這個檔案
+
+（ 原因是因為 `db` 以及 `web` 都有指定 secrets ）
+
+```cmd
+cat /run/secrets/my_password
+```
+
+![](https://i.imgur.com/4kKxWFn.png)
+
+從上圖可以發現，看到剛剛設定的密碼了:smile:
+
+接下來就是 migrate，隨便進去一個 web service 的 container migrate 即可，使用的指令如下，
+
+先查看 container id，並且進入 container
+
+```cmd
+docker ps
+docker exec -it <Container ID> bash
+```
+
+![](https://i.imgur.com/daIIFT0.png)
+
+開始 migrate
+
+```cmd
+python manage.py makemigrations musics
+python manage.py migrate
+```
+
+![](https://i.imgur.com/5YkmSqQ.png)
+
+再建立一個 superuser
+
+```cmd
+python manage.py createsuperuser
+```
+
+接下來就可以正常使用了
+
+![](https://i.imgur.com/rxoEkG5.png)
 
 ## 執行環境
 
