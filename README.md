@@ -117,9 +117,11 @@ docker-machine create --driver hyperv vm1
 
 ![](https://i.imgur.com/6GkusmS.png)
 
-windows 用戶還需要額外做設定 :weary: 請參考 [docker-machine - windows 額外設定](https://github.com/twtrubiks/docker-swarm-tutorial#docker-machine---windows-%E9%A1%8D%E5%A4%96%E8%A8%AD%E5%AE%9A)
+windows 用戶還需要額外做設定 :weary: 請參考 [docker-machine - windows 額外設定](https://github.com/twtrubiks/docker-swarm-tutorial#docker-machine---windows-%E9%A1%8D%E5%A4%96%E8%A8%AD%E5%AE%9A)，
 
-詳細可參考 [https://docs.docker.com/machine/drivers/hyper-v/](https://docs.docker.com/machine/drivers/hyper-v/)
+詳細可參考 [https://docs.docker.com/machine/drivers/hyper-v/](https://docs.docker.com/machine/drivers/hyper-v/)。
+
+順帶一下，有時候如果遇到很怪的問題，請將你的**防火牆暫時關閉**。
 
 ***Mac***
 
@@ -912,6 +914,12 @@ volumes:
 
 這邊基本上都可以找到說明，在頁面上用關鍵字找即可 :relaxed:
 
+補充一下，`depends_on` 這個參數在 swarm 中是會被忽略的，
+
+可參考 [https://docs.docker.com/compose/compose-file/#depends_on](https://docs.docker.com/compose/compose-file/#depends_on)，
+
+The depends_on option is ignored when deploying a stack in swarm mode with a version 3 Compose file。
+
 ### 步驟三
 
 終於可以開始佈署了 :satisfied:
@@ -1065,50 +1073,52 @@ load balancer 之前也有介紹過，那時候是使用 nginx 介紹的，
 
 參考官網 [https://docs.docker.com/engine/swarm/ingress/#using-the-routing-mesh](https://docs.docker.com/engine/swarm/ingress/#using-the-routing-mesh)
 
-注意，這邊是本機中執行，不是在 swarm 中執行了
+注意，這邊是本機中執行，不是在 swarm 中執行了，
 
-先切換到 `haproxy-tutorial` 資料夾中
+先切換到 `haproxy-tutorial` 資料夾中，
 > cd haproxy-tutorial
 
-修改 `haproxy.cfg`，主要是修改成自己的 ip
+修改 `haproxy.cfg`，主要是最後面修改成自己的 ip
 
 ```cfg
-global
-        # log /dev/log   local0
-        # log /dev/log   local1 notice
-        # chroot /var/lib/haproxy
-        maxconn 4096
-        # user www-data
-        # group haproxy
-        daemon
-
 defaults
-        log     global
-        mode    http
-        option  httplog
-        option  dontlognull
-        retries 3
-        option redispatch
-        maxconn 2000
-        contimeout     5000
-        clitimeout     50000
-        srvtimeout     50000
+  mode http
+  option  httplog
+  timeout connect 4000ms
+  timeout client 50000ms
+  timeout server 50000ms
+
+  stats enable
+  stats refresh 5s
+  stats show-node
+  stats uri  /stats/haproxy  # http://0.0.0.0:8080/stats/haproxy
+
+global
+  log 0.0.0.0:1514 local0 debug
+  user haproxy
+  group haproxy
 
 # Configure HAProxy to listen on port 80
 frontend http_front
-   bind *:80
-   stats uri /haproxy?stats
-   default_backend http_back
+    log global
+    bind *:80
+    default_backend http_back
 
 # Configure HAProxy to route requests to swarm nodes on port 8000
 backend http_back
-   balance roundrobin
-   server node1 192.168.1.105:8000 check
-   server node2 192.168.1.106:8000 check
-   server node3 192.168.1.107:8000 check
+    log global
+    balance roundrobin
+    http-request replace-value Host .* info.cern.ch
+    server node1 192.168.1.105:8000 check
+    server node2 192.168.1.106:8000 check
+    server node3 192.168.1.107:8000 check
 ```
 
-`haproxy.cfg` 的設定真的很多，詳細可以參考 [官網](http://www.haproxy.org/) 說明
+`haproxy.cfg` 的設定真的很多，詳細可以參考 [官網](http://www.haproxy.org/) 說明。
+
+**方法一** :
+
+ ( 這個方法無法取得 HAProxy 的 Log ，但 Load Balance 正常，可能是要設定其他的東西，建議使用**方法二** )
 
 接著 build image
 
@@ -1126,6 +1136,22 @@ docker run -p 8080:80  my-haproxy
 
 ![](https://i.imgur.com/z0g2jQp.png)
 
+**方法二** :
+
+直接使用 [pgaertig/haproxy-docker](https://github.com/pgaertig/haproxy-docker) 這個 image。
+
+```cmd
+ docker run -v D:\docker-swarm-tutorial\haproxy-tutorial\haproxy-data:/haproxy-data -p 8080:80 pgaertig/haproxy:latest
+```
+
+( 記得使用完整的路徑 )
+
+![](https://i.imgur.com/sKTyq1h.png)
+
+接著瀏覽[網頁]((http://localhost:8080/api/music/))時，你會發現 log 中有 node1、node2、node3 ，這就是 HAProxy 的 Load Balance。
+
+![](https://i.imgur.com/raGwlPQ.png)
+
 當瀏覽 [http://localhost:8080/api/music/](http://localhost:8080/api/music/) 時，就算 vm3 ( 192.168.99.102 )  掛了，我們一樣可以正常使用網頁 :satisfied:
 
 ![](https://i.imgur.com/aOiXV3M.png)
@@ -1133,6 +1159,10 @@ docker run -p 8080:80  my-haproxy
 HAProxy 會透過 Health Check 檢查是否這台 server 可以處理 request（會將你的 request 導到可以處理的 server 上）
 
 只要還有一台存在，都可以正常使用網頁（不會掛點）。
+
+也可以瀏覽 [http://localhost:8080/stats/haproxy](http://localhost:8080/stats/haproxy) 查看狀態，
+
+![](https://i.imgur.com/wK2DP0O.png)
 
 但也不要開心的太早，雖然有 HAProxy 幫我們處理 load balancer，但是也有可以 HAProxy 那台機器出了問題，
 
@@ -1353,6 +1383,18 @@ python manage.py createsuperuser
 接下來就可以正常使用了
 
 ![](https://i.imgur.com/rxoEkG5.png)
+
+## 後記：
+
+如果你真的很有耐心的看到這邊，而且你也是第一次接觸這種分散式系統的人，相信你會覺得 Docker Swarm
+
+真的很棒，而且入門也不會很困難 :smile:
+
+Docker Swarm 可以玩得真的非常非常多，這篇只是一個基礎的介紹，有機會我再介紹其他的東西給大家 :kissing_closed_eyes:
+
+當然，分散式系統也有很多，像是文章開頭說的 [Kubernetes](https://kubernetes.io/) ( k8s ) 也可以玩玩看 ~
+
+如果你有想分享或是補充的，歡迎聯絡我，感謝閱讀到最後的你 ( 妳 ) :kissing_heart:
 
 ## 執行環境
 
