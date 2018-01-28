@@ -824,7 +824,7 @@ git clone https://github.com/twtrubiks/docker-tutorial.git
 ```
 
 接著到目錄底下
-> cd docker-tutorial`
+> cd docker-tutorial
 
 執行 `docker-compose up`
 
@@ -1036,6 +1036,28 @@ python manage.py createsuperuser
 [http://192.168.1.106:8000/api/music/](http://192.168.1.106:8000/api/music/) 或 [http://192.168.1.107:8000/api/music/](http://192.168.1.107:8000/api/music/)
 
 都可以順利看到 :satisfied:
+
+溫馨小提醒  :heart:
+
+這邊有可能有時候會遇到，你打開網頁，發現顯示找不到網頁的狀況，會發生這個原因是因為啟動順序
+
+的問題，因為有可能 web service 比 db service 早啟動完成，所以導致 web 無法連上 db :sob:
+
+這時候該怎麼解決呢:question:
+
+這裡先提供一個方法，想法很簡單，就是將 web service 重新啟動，這樣就可以連到 db 了 :relaxed:
+
+如果有更好的方法歡迎提供，謝謝。
+
+先將  my_app_web service scale 為 0
+
+> docker service scale my_app_web=0
+
+再將他 scale 為 10 ( 原本設定為 10 )
+
+> docker service scale my_app_web=10
+
+基本上這樣 web service 就一定會成功連線到 db service  :relaxed:
 
 ![](https://i.imgur.com/yXRmthx.png)
 
